@@ -1,14 +1,14 @@
 import json
 import logging
 from random import randint, choice
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from telegram import Update
 from telegram.ext import filters, ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler
 
 MIN_TIME = datetime.strptime("10:00:00", "%H:%M:%S").time()
 MAX_TIME = datetime.strptime("23:59:59", "%H:%M:%S").time()
-INTERVAL = timedelta(days=2)
 MIN_DISTANCE = timedelta(seconds=60 * 30)
+DAB_REACTION_INTERVAL = timedelta(seconds=60 * 3)
 
 # logging.basicConfig(
 #     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -39,6 +39,7 @@ def choose_next_dab_time():
     next_date = start_date + timedelta(seconds=seconds)
 
     due = (next_date - today).total_seconds()
+    print(due, next_date)
     return due
 
 
@@ -57,9 +58,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def sudden_dab(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send the sudden dab message."""
     job = context.job
-    await context.bot.send_message(job.chat_id, text=f"ВНЕЗАПНЫЙ ДЭБ!")
+    response = await context.bot.send_message(job.chat_id, text=f"!ВНЕЗАПНЫЙ ДЭБ!")
+    context.chat_data["dab_message_id"] = response.id
+    context.chat_data["dab_message_date"] = response.date
     await schedule_dab(job.chat_id, context)
 
+async def dab_react(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send reaction if dab was sent on time"""
+    if "dab_message_id" not in context.chat_data or "dab_message_date" not in context.chat_data:
+        return
+    
+    dab_message_id = context.chat_data["dab_message_id"]
+    dab_message_date = context.chat_data["dab_message_date"]
+    reply_time = datetime.now(UTC) - dab_message_date
+    if dab_message_id != update.effective_message.reply_to_message.id or reply_time > DAB_REACTION_INTERVAL:
+        return
+
+    await context.bot.set_message_reaction(update.effective_message.chat_id, update.effective_message.id, "🏆", is_big=True)
+    
 
 def remove_job_if_exists(name: str, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Remove job with given name. Returns whether job was removed."""
@@ -84,11 +100,13 @@ if __name__ == '__main__':
     
     start_handler = CommandHandler('start', start)
     stop_handler = CommandHandler('stop', stop)
+    dab_react_handler = MessageHandler(filters.REPLY & filters.VIDEO_NOTE, dab_react)
     
     unknown_handler = MessageHandler(filters.COMMAND, unknown)
 
     application.add_handler(start_handler)
     application.add_handler(stop_handler)
+    application.add_handler(dab_react_handler)
     application.add_handler(unknown_handler)
     
     application.run_polling()
