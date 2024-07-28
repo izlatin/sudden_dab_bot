@@ -51,6 +51,9 @@ async def schedule_dab(chat_id, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Вы подписались на неслыханное веселье! " +
+                                   "На каждый внезапный дэб вам нужно будет в течение 3 минут записать ответный кружочек с вашим дэбом. \n" +
+                                   "Ну что ж...")
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Мама не жди меня ночью, флеш мне в очко")
     await schedule_dab(update.effective_message.chat_id, context)
     
