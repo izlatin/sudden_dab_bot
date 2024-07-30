@@ -18,8 +18,11 @@ DAB_REACTION_INTERVAL = timedelta(seconds=60 * 3)
 def get_next_day():
     today = datetime.today()
     full_day_in_minutes = MAX_TIME.hour * 60 + MAX_TIME.minute - (MIN_TIME.hour * 60 + MIN_TIME.minute)
-    today_minutes_left = MAX_TIME.hour * 60 + MAX_TIME.minute - (today.hour * 60 + today.minute)
-    today_minutes_left = max(0, today_minutes_left - MIN_DISTANCE.seconds // 60)
+    if today.time() < MIN_TIME:
+        today_minutes_left = full_day_in_minutes
+    else:
+        today_minutes_left = MAX_TIME.hour * 60 + MAX_TIME.minute - (today.hour * 60 + today.minute)
+        today_minutes_left = max(0, today_minutes_left - MIN_DISTANCE.seconds // 60)
     
     next_day = choice([0] * today_minutes_left + [1] * full_day_in_minutes + [2] * full_day_in_minutes)
     return next_day
@@ -30,7 +33,7 @@ def choose_next_dab_time():
     next_day = get_next_day()
     
     if next_day == 0:
-        start_date = datetime.combine((today + timedelta(days=next_day)).date(), (today + MIN_DISTANCE).time())
+        start_date = datetime.combine(today.date(), max((today + MIN_DISTANCE).time(), MIN_TIME))
     else:
         start_date = datetime.combine((today + timedelta(days=next_day)).date(), MIN_TIME)
     end_date = datetime.combine((today + timedelta(days=next_day)).date(), MAX_TIME)
