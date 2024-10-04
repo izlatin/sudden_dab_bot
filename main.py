@@ -99,10 +99,15 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Ya vas ne ponyav")
+    
+
+async def post_shutdown(app):
+    print("shutdown")
+
 
 if __name__ == '__main__':
     token = json.load(open("token.json", encoding='utf-8'))
-    application = ApplicationBuilder().token(token["token"]).build()
+    application = ApplicationBuilder().token(token["token"]).post_shutdown(post_shutdown).build()
     
     start_handler = CommandHandler('start', start)
     stop_handler = CommandHandler('stop', stop)
