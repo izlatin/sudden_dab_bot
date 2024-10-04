@@ -5,11 +5,8 @@ import os
 DATABASE_FILENAME = "db.sqlite3"
 CURSOR = None
 CONNECTION = None
-TABLES = [
-    
-]
 
-def init_databse():
+def init_database(tables=[]):
     global CURSOR, CONNECTION
 
     if not os.path.exists(DATABASE_FILENAME):
@@ -18,6 +15,21 @@ def init_databse():
 
     CONNECTION = sqlite3.connect(DATABASE_FILENAME)
     CURSOR = CONNECTION.cursor()
+    
+    for table in tables:
+        if not table_exists(table.table_name):
+            table.create_table()
+
+
+def table_exists(name):
+    global CURSOR, CONNECTION
+    
+    sql = f"""
+        SELECT name FROM sqlite_master WHERE type='table' AND name='{name}';
+        """
+    CURSOR.execute(sql)
+    return bool(CURSOR.fetchall())
+    
     
 def close_database():
     global CURSOR, CONNECTION

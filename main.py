@@ -4,6 +4,13 @@ from random import randint, choice
 from datetime import datetime, timedelta, UTC
 from telegram import Update
 from telegram.ext import filters, ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler
+from database import init_database, close_database
+from models import StatsTable
+
+
+TABLES = [
+    StatsTable
+]
 
 MIN_TIME = datetime.strptime("10:00:00", "%H:%M:%S").time()
 MAX_TIME = datetime.strptime("23:59:59", "%H:%M:%S").time()

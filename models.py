@@ -1,6 +1,5 @@
 from database import get_database
 
-
 class Stats:
     def __init__(self, id: int, chat_id: int, user_id: int, dabs_count: int,
                  dabs_on_time_count: int, streak: int, max_streak: int) -> None:
@@ -17,6 +16,9 @@ class Stats:
 
 
 class StatsTable:
+    
+    table_name = "stats"
+    
     def __init__(self, chat_id: int, user_id: int, on_time: bool) -> None:
         self.chat_id = chat_id
         self.user_id = user_id
@@ -29,8 +31,8 @@ class StatsTable:
     def create_table(cls):
         cursor, conn = get_database()
         
-        sql = """
-            CREATE TABLE IF NOT EXISTS stats (
+        sql = f"""
+            CREATE TABLE IF NOT EXISTS {cls.table_name} (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 chat_id INTEGER NOT NULL,
                 user_id INTEGER NOT NULL,
@@ -48,8 +50,8 @@ class StatsTable:
     def drop_table(cls):
         cursor, conn = get_database()
         
-        sql = """   
-            DROP TABLE IF EXISTS stats;
+        sql = f"""   
+            DROP TABLE IF EXISTS {cls.table_name};
         """
         cursor.execute(sql)
         conn.commit()
@@ -58,7 +60,7 @@ class StatsTable:
     def if_exists(cls, chat_id, user_id) -> bool:
         cursor, _ = get_database()
         sql = f"""   
-            SELECT id FROM stats WHERE chat_id={chat_id} AND user_id={user_id};
+            SELECT id FROM {cls.table_name} WHERE chat_id={chat_id} AND user_id={user_id};
         """
         cursor.execute(sql)
         exists = bool(cursor.fetchall())
@@ -68,7 +70,7 @@ class StatsTable:
         if not self.if_exists(self.chat_id, self.user_id):
             default = int(self.on_time)
             sql = f"""
-                INSERT INTO stats (chat_id, user_id, dabs_count, dabs_on_time_count, streak, max_streak)
+                INSERT INTO {self.table_name} (chat_id, user_id, dabs_count, dabs_on_time_count, streak, max_streak)
                 VALUES ({self.chat_id}, {self.user_id}, 1, {default}, {default}, {default})
             """
 
@@ -94,7 +96,7 @@ class StatsTable:
             streak = 0
         
         sql = f"""
-                UPDATE stats 
+                UPDATE {self.table_name} 
                 SET dabs_count={dabs_count}, dabs_on_time_count={dabs_on_time}, streak={streak}, max_streak={max_streak}
                 WHERE id={item.id}
             """
