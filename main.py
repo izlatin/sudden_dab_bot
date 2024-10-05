@@ -85,8 +85,11 @@ async def dab_react(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     dab_message_date = context.chat_data["dab_message_date"]
     reply_time = datetime.now(UTC) - dab_message_date
     if dab_message_id != update.effective_message.reply_to_message.id or reply_time > DAB_REACTION_INTERVAL:
+        if dab_message_id == update.effective_message.reply_to_message.id:
+            StatsTable(update.effective_chat.id, update.effective_sender.id, on_time=False).save()
         return
 
+    StatsTable(update.effective_chat.id, update.effective_sender.id, on_time=True).save()
     await context.bot.set_message_reaction(update.effective_message.chat_id, update.effective_message.id, "🏆", is_big=True)
     
 
@@ -101,8 +104,41 @@ def remove_job_if_exists(name: str, context: ContextTypes.DEFAULT_TYPE) -> bool:
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Чао какао ай гесс")
-    chat_id = update.message.chat_id
+    chat_id = update.effective_chat.id
     job_removed = remove_job_if_exists(str(chat_id), context)
+    
+    
+async def sudden_dab_test(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send the sudden dab test message."""
+    job = context.job
+    response = await context.bot.send_message(job.chat_id, text=f"!ВНЕЗАПНЫЙ ДЭБ ТЕСТ!")
+    context.chat_data["dab_message_id"] = response.id
+    context.chat_data["dab_message_date"] = response.date
+    
+
+async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    due = 0
+    chat_id = update.effective_chat.id
+    
+    context.job_queue.run_once(sudden_dab_test, due, chat_id=chat_id, name=str(chat_id), data=due)
+    
+    
+async def statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    
+    stats = StatsTable.get_chat_stats(chat_id)
+    if not stats:
+        await context.bot.send_message(chat_id, "Пока что не сохранено ни одного дэба.")
+        return
+    
+    result = []
+    for entry in stats:
+        chat_member = await context.bot.get_chat_member(chat_id, entry.user_id)
+        name = chat_member.user.first_name
+        result.append(f"""{chat_member.user.name}\n{name} — streak {entry.streak}🔥! (best {entry.max_streak}) \n{entry.dabs_on_time_count} on-time dabs out of {entry.dabs_count} overall.\n""")
+    
+    await context.bot.send_message(chat_id, "\n".join(result))
+    
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Ya vas ne ponyav")
@@ -110,21 +146,28 @@ async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def post_shutdown(app):
     print("shutdown")
+    close_database()
 
 
 if __name__ == '__main__':
+    init_database(TABLES)
+    
     token = json.load(open("token.json", encoding='utf-8'))
     application = ApplicationBuilder().token(token["token"]).post_shutdown(post_shutdown).build()
     
     start_handler = CommandHandler('start', start)
     stop_handler = CommandHandler('stop', stop)
+    test_handler = CommandHandler('test', test)
+    stats_handler = CommandHandler('statistics', statistics)
     dab_react_handler = MessageHandler(filters.REPLY & filters.VIDEO_NOTE, dab_react)
     
     unknown_handler = MessageHandler(filters.COMMAND, unknown)
 
     application.add_handler(start_handler)
     application.add_handler(stop_handler)
+    application.add_handler(stats_handler)
     application.add_handler(dab_react_handler)
+    application.add_handler(test_handler)
     application.add_handler(unknown_handler)
     
     application.run_polling()

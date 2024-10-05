@@ -19,6 +19,9 @@ def init_database(tables=[]):
     for table in tables:
         if not table_exists(table.table_name):
             table.create_table()
+            print("Created table", table.table_name)
+    
+    print("Database initialized")
 
 
 def table_exists(name):
@@ -36,6 +39,8 @@ def close_database():
     
     CONNECTION.close()
     CURSOR = None
+    
+    print("Database closed")
 
 def get_database():
     return CURSOR, CONNECTION

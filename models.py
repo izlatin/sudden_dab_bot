@@ -152,3 +152,16 @@ class StatsTable:
             streak=row[5],
             max_streak=row[6]
         )
+    
+    @classmethod
+    def get_chat_stats(cls, chat_id) -> list[Stats]:
+        cursor, _ = get_database()
+        
+        sql = f"""
+                SELECT * FROM {cls.table_name}
+                WHERE chat_id={chat_id}
+                ORDER BY streak DESC
+            """
+        
+        rows = cursor.execute(sql).fetchall()
+        return list(map(lambda x: cls.row_to_stats(x), rows))
