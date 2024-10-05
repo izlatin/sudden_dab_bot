@@ -1,4 +1,5 @@
 from database import get_database
+from datetime import datetime
 
 class Stats:
     def __init__(self, id: int, chat_id: int, user_id: int, dabs_count: int,
@@ -116,7 +117,7 @@ class StatsTable:
         cursor, _ = get_database()
         
         sql = f"""
-                SELECT * from stats
+                SELECT * from {cls.table_name}
                 WHERE id={id}
             """
         cursor.execute(sql)
@@ -131,7 +132,7 @@ class StatsTable:
         cursor, _ = get_database()
         
         sql = f"""
-                SELECT * from stats
+                SELECT * from {cls.table_name}
                 WHERE chat_id={chat_id} AND user_id={user_id}
             """
         cursor.execute(sql)
@@ -165,3 +166,151 @@ class StatsTable:
         
         rows = cursor.execute(sql).fetchall()
         return list(map(lambda x: cls.row_to_stats(x), rows))
+    
+
+class Session:
+    def __init__(self, chat_id: int, next_dab: datetime = None, last_dab_msg_id: int = None,
+                 last_dab_msg_time: datetime = None, active: bool = None) -> None:
+        self.chat_id = chat_id
+        self.next_dab = next_dab
+        self.last_dab_msg_id = last_dab_msg_id
+        self.last_dab_msg_time = last_dab_msg_time
+        self.active = active
+        
+    def __repr__(self) -> str:
+        active = "active"
+        if not self.active:
+            active = "inactive"
+        return f"Chat {self.chat_id} ({active}), next dab on {self.next_dab}"
+
+
+class SessionTable:
+    
+    table_name = "session"
+    
+    def __init__(self, chat_id: int, next_dab: datetime = None, last_dab_msg_id: int = None,
+                 last_dab_msg_time: datetime = None, active: bool = None) -> None:
+        self.chat_id = chat_id
+        self.next_dab = next_dab
+        self.last_dab_msg_id = last_dab_msg_id
+        self.last_dab_msg_time = last_dab_msg_time
+        self.active = active
+        
+        self.cursor, self.conn = get_database()
+    
+    @classmethod 
+    def create_table(cls):
+        cursor, conn = get_database()
+        
+        sql = f"""
+            CREATE TABLE IF NOT EXISTS {cls.table_name} (
+                chat_id INTEGER PRIMARY KEY,
+                next_dab TIMESTAMP,
+                last_dab_msg_id INTEGER,
+                last_dab_msg_time TIMESTAMP,
+                active INTEGER
+            )
+        """
+        cursor.execute(sql)
+        conn.commit()
+    
+    @classmethod
+    def drop_table(cls):
+        cursor, conn = get_database()
+        
+        sql = f"""   
+            DROP TABLE IF EXISTS {cls.table_name};
+        """
+        cursor.execute(sql)
+        conn.commit()
+    
+    @classmethod
+    def if_exists(cls, chat_id) -> bool:
+        cursor, _ = get_database()
+        sql = f"""   
+            SELECT chat_id FROM {cls.table_name} WHERE chat_id={chat_id};
+        """
+        cursor.execute(sql)
+        exists = bool(cursor.fetchall())
+        return exists
+    
+    def save(self):
+        if not self.if_exists(self.chat_id):
+            sql = f"""
+                INSERT INTO {self.table_name} (chat_id)
+                VALUES ({self.chat_id})
+            """
+
+            self.cursor.execute(sql)
+            self.conn.commit()
+            
+        item = self.get(self.chat_id)
+        next_dab = self.next_dab
+        last_dab_msg_id = self.last_dab_msg_id
+        last_dab_msg_time = self.last_dab_msg_time
+        active = self.active
+        
+        if not next_dab:
+            next_dab = item.next_dab
+        if not last_dab_msg_id:
+            last_dab_msg_id = item.last_dab_msg_id
+        if not last_dab_msg_time:
+            last_dab_msg_time = item.last_dab_msg_time
+        if active == None and item.active != None:
+            active = int(item.active)
+        
+        
+        sql = f"""
+                UPDATE {self.table_name} 
+                SET next_dab=?, last_dab_msg_id=?, last_dab_msg_time=?, active=?
+                WHERE chat_id={self.chat_id}
+            """
+            
+        self.cursor.execute(sql, (next_dab, last_dab_msg_id, last_dab_msg_time, active))
+        self.conn.commit()
+
+    @classmethod
+    def create(cls, chat_id: int, next_dab: datetime = None, last_dab_msg_id: int = None,
+                 last_dab_msg_time: datetime = None, active: bool = None):
+
+        new_instance = cls(chat_id, next_dab, last_dab_msg_id, last_dab_msg_time, active)
+        new_instance.save()
+
+        return cls.get(chat_id)
+    
+    @classmethod
+    def get(cls, id) -> Session:
+        cursor, _ = get_database()
+        
+        sql = f"""
+                SELECT * from {cls.table_name}
+                WHERE chat_id={id}
+            """
+        cursor.execute(sql)
+        item = cursor.fetchone()
+        if not item:
+            return None
+        item = list(item)
+        return cls.row_to_sessions(item)
+    
+    @classmethod
+    def row_to_sessions(cls, row) -> Session:
+        return Session(
+            chat_id=row[0],
+            next_dab=row[1],
+            last_dab_msg_id=row[2],
+            last_dab_msg_time=row[3],
+            active=bool(row[4])
+        )
+
+    @classmethod
+    def get_active_sessions(cls) -> list[Session]:
+        cursor, _ = get_database()
+        
+        sql = f"""
+                SELECT * FROM {cls.table_name}
+                WHERE active=1
+            """
+        
+        rows = cursor.execute(sql).fetchall()
+        return list(map(lambda x: cls.row_to_sessions(x), rows))

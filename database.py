@@ -13,7 +13,9 @@ def init_database(tables=[]):
         db = open(DATABASE_FILENAME, 'w')
         db.close()
 
-    CONNECTION = sqlite3.connect(DATABASE_FILENAME)
+    CONNECTION = sqlite3.connect(DATABASE_FILENAME,
+                                detect_types=sqlite3.PARSE_DECLTYPES | 
+                                sqlite3.PARSE_COLNAMES)
     CURSOR = CONNECTION.cursor()
     
     for table in tables:

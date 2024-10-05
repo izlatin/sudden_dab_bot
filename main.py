@@ -3,13 +3,13 @@ import logging
 from random import randint, choice
 from datetime import datetime, timedelta, UTC
 from telegram import Update
-from telegram.ext import filters, ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler
+from telegram.ext import filters, Application, ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler
 from database import init_database, close_database
-from models import StatsTable
+from models import StatsTable, SessionTable
 
 
 TABLES = [
-    StatsTable
+    StatsTable, SessionTable
 ]
 
 MIN_TIME = datetime.strptime("10:00:00", "%H:%M:%S").time()
@@ -50,14 +50,16 @@ def choose_next_dab_time():
 
     due = (next_date - today).total_seconds()
     print(due, next_date)
-    return due
+    return due, next_date
 
 
 async def schedule_dab(chat_id, context: ContextTypes.DEFAULT_TYPE):
-    due = choose_next_dab_time()
+    due, next_date = choose_next_dab_time()
 
     job_removed = remove_job_if_exists(str(chat_id), context)
     context.job_queue.run_once(sudden_dab, due, chat_id=chat_id, name=str(chat_id), data=due)
+    
+    SessionTable(chat_id, next_dab=next_date).save()
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -66,24 +68,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                    "Ну что ж...")
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Мама не жди меня ночью, флеш мне в очко")
     await schedule_dab(update.effective_message.chat_id, context)
+    SessionTable(update.effective_chat.id, active=True).save()
     
 
 async def sudden_dab(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send the sudden dab message."""
     job = context.job
     response = await context.bot.send_message(job.chat_id, text=f"!ВНЕЗАПНЫЙ ДЭБ!")
-    context.chat_data["dab_message_id"] = response.id
-    context.chat_data["dab_message_date"] = response.date
+    
+    SessionTable(job.chat_id, last_dab_msg_id=response.id, last_dab_msg_time=response.date.replace(tzinfo=None)).save()
+    
     await schedule_dab(job.chat_id, context)
 
 async def dab_react(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send reaction if dab was sent on time"""
-    if "dab_message_id" not in context.chat_data or "dab_message_date" not in context.chat_data:
-        return
-    
-    dab_message_id = context.chat_data["dab_message_id"]
-    dab_message_date = context.chat_data["dab_message_date"]
-    reply_time = datetime.now(UTC) - dab_message_date
+    """Send reaction if dab was sent on time"""    
+    saved = SessionTable.get(update.effective_chat.id)
+    dab_message_id = saved.last_dab_msg_id
+    dab_message_date = saved.last_dab_msg_time
+    reply_time = datetime.now(UTC) - dab_message_date.replace(tzinfo=UTC)
     if dab_message_id != update.effective_message.reply_to_message.id or reply_time > DAB_REACTION_INTERVAL:
         if dab_message_id == update.effective_message.reply_to_message.id:
             StatsTable(update.effective_chat.id, update.effective_sender.id, on_time=False).save()
@@ -106,14 +108,14 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Чао какао ай гесс")
     chat_id = update.effective_chat.id
     job_removed = remove_job_if_exists(str(chat_id), context)
+    SessionTable(update.effective_chat.id, active=False).save()
     
     
 async def sudden_dab_test(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send the sudden dab test message."""
     job = context.job
     response = await context.bot.send_message(job.chat_id, text=f"!ВНЕЗАПНЫЙ ДЭБ ТЕСТ!")
-    context.chat_data["dab_message_id"] = response.id
-    context.chat_data["dab_message_date"] = response.date
+    SessionTable(job.chat_id, last_dab_msg_id=response.id, last_dab_msg_time=response.date.replace(tzinfo=None)).save()
     
 
 async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -142,7 +144,20 @@ async def statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Ya vas ne ponyav")
-    
+
+
+def restore_session(application: Application):
+    sessions = SessionTable.get_active_sessions()
+    for session in sessions:
+        next_date = session.next_dab
+        today = datetime.today()
+        due = (next_date - today).total_seconds()
+        if due < 0:
+            due, next_date = choose_next_dab_time()
+            SessionTable(session.chat_id, next_dab=next_date).save()
+        
+        application.job_queue.run_once(sudden_dab, due, chat_id=session.chat_id, name=str(session.chat_id), data=due)
+
 
 async def post_shutdown(app):
     print("shutdown")
@@ -170,4 +185,5 @@ if __name__ == '__main__':
     application.add_handler(test_handler)
     application.add_handler(unknown_handler)
     
+    restore_session(application)
     application.run_polling()
