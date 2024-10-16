@@ -2,11 +2,13 @@ from database import get_database
 from datetime import datetime
 
 class Stats:
-    def __init__(self, id: int, chat_id: int, user_id: int, dabs_count: int,
+    def __init__(self, id: int, chat_id: int, user_id: int, username: str, name: str, dabs_count: int,
                  dabs_on_time_count: int, streak: int, max_streak: int) -> None:
         self.id = id
         self.chat_id = chat_id
         self.user_id = user_id
+        self.username = username
+        self.name = name
         self.dabs_count = dabs_count
         self.dabs_on_time_count = dabs_on_time_count
         self.streak = streak
@@ -20,9 +22,11 @@ class StatsTable:
     
     table_name = "stats"
     
-    def __init__(self, chat_id: int, user_id: int, on_time: bool) -> None:
+    def __init__(self, chat_id: int, user_id: int, username: str, name: str, on_time: bool) -> None:
         self.chat_id = chat_id
         self.user_id = user_id
+        self.username = username
+        self.name = name
         self.on_time = on_time
         
         self.cursor, self.conn = get_database()
@@ -37,6 +41,8 @@ class StatsTable:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 chat_id INTEGER NOT NULL,
                 user_id INTEGER NOT NULL,
+                username TEXT,
+                name TEXT,
                 dabs_count INTEGER,
                 dabs_on_time_count INTEGER,
                 streak INTEGER,
@@ -71,8 +77,8 @@ class StatsTable:
         if not self.if_exists(self.chat_id, self.user_id):
             default = int(self.on_time)
             sql = f"""
-                INSERT INTO {self.table_name} (chat_id, user_id, dabs_count, dabs_on_time_count, streak, max_streak)
-                VALUES ({self.chat_id}, {self.user_id}, 1, {default}, {default}, {default})
+                INSERT INTO {self.table_name} (chat_id, user_id, username, name, dabs_count, dabs_on_time_count, streak, max_streak)
+                VALUES ({self.chat_id}, {self.user_id}, "{self.username}", "{self.name}", 1, {default}, {default}, {default})
             """
 
             self.cursor.execute(sql)
@@ -98,16 +104,16 @@ class StatsTable:
         
         sql = f"""
                 UPDATE {self.table_name} 
-                SET dabs_count={dabs_count}, dabs_on_time_count={dabs_on_time}, streak={streak}, max_streak={max_streak}
+                SET username="{self.username}", name="{self.name}", dabs_count={dabs_count}, dabs_on_time_count={dabs_on_time}, streak={streak}, max_streak={max_streak}
                 WHERE id={item.id}
             """
         self.cursor.execute(sql)
         self.conn.commit()
 
     @classmethod
-    def create(cls, chat_id, user_id, on_time):
+    def create(cls, chat_id, user_id, username, name, on_time):
 
-        new_instance = cls(chat_id, user_id, on_time)
+        new_instance = cls(chat_id, user_id, username, name, on_time)
         new_instance.save()
 
         return cls.get_by_id(new_instance.id)
@@ -148,10 +154,12 @@ class StatsTable:
             id = row[0],
             chat_id=row[1],
             user_id=row[2],
-            dabs_count=row[3],
-            dabs_on_time_count=row[4],
-            streak=row[5],
-            max_streak=row[6]
+            username=row[3],
+            name=row[4],
+            dabs_count=row[5],
+            dabs_on_time_count=row[6],
+            streak=row[7],
+            max_streak=row[8]
         )
     
     @classmethod

@@ -88,10 +88,10 @@ async def dab_react(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_time = datetime.now(UTC) - dab_message_date.replace(tzinfo=UTC)
     if dab_message_id != update.effective_message.reply_to_message.id or reply_time > DAB_REACTION_INTERVAL:
         if dab_message_id == update.effective_message.reply_to_message.id:
-            StatsTable(update.effective_chat.id, update.effective_sender.id, on_time=False).save()
+            StatsTable(update.effective_chat.id, update.effective_sender.id, update.effective_sender.name, update.effective_sender.first_name, on_time=False).save()
         return
 
-    StatsTable(update.effective_chat.id, update.effective_sender.id, on_time=True).save()
+    StatsTable(update.effective_chat.id, update.effective_sender.id,  update.effective_sender.name, update.effective_sender.first_name, on_time=True).save()
     await context.bot.set_message_reaction(update.effective_message.chat_id, update.effective_message.id, "🏆", is_big=True)
     
 
@@ -135,9 +135,7 @@ async def statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     result = []
     for entry in stats:
-        chat_member = await context.bot.get_chat_member(chat_id, entry.user_id)
-        name = chat_member.user.first_name
-        result.append(f"""{chat_member.user.name}\n{name} — streak {entry.streak}🔥! (best {entry.max_streak}) \n{entry.dabs_on_time_count} on-time dabs out of {entry.dabs_count} overall.\n""")
+        result.append(f"""{entry.username}\n{entry.name} — streak {entry.streak}🔥! (best {entry.max_streak}) \n{entry.dabs_on_time_count} on-time dabs out of {entry.dabs_count} overall.\n""")
     
     await context.bot.send_message(chat_id, "\n".join(result))
     
