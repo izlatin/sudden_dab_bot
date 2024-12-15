@@ -12,9 +12,9 @@ TABLES = [
     StatsTable, SessionTable
 ]
 
-MIN_TIME = datetime.strptime("10:00:00", "%H:%M:%S").time()
-MAX_TIME = datetime.strptime("23:59:59", "%H:%M:%S").time()
-MIN_DISTANCE = timedelta(seconds=60 * 30)
+MIN_TIME = datetime.strptime("07:00:00", "%H:%M:%S").time()
+MAX_TIME = datetime.strptime("21:59:59", "%H:%M:%S").time()
+MIN_DISTANCE = timedelta(seconds=60 * 60 * 4)
 DAB_REACTION_INTERVAL = timedelta(seconds=60 * 3)
 
 # logging.basicConfig(
