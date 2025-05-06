@@ -57,7 +57,8 @@ async def schedule_dab(chat_id, context: ContextTypes.DEFAULT_TYPE):
     due, next_date = choose_next_dab_time()
 
     job_removed = remove_job_if_exists(str(chat_id), context)
-    context.job_queue.run_once(sudden_dab, due, chat_id=chat_id, name=str(chat_id), data=due)
+    context.job_queue.run_once(sudden_dab, due, chat_id=chat_id, name=str(chat_id), data=due,
+                               job_kwargs={"misfire_grace_time": None})
     
     SessionTable(chat_id, next_dab=next_date).save()
 
@@ -122,7 +123,8 @@ async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     due = 0
     chat_id = update.effective_chat.id
     
-    context.job_queue.run_once(sudden_dab_test, due, chat_id=chat_id, name=str(chat_id), data=due)
+    context.job_queue.run_once(sudden_dab_test, due, chat_id=chat_id, name=str(chat_id), data=due,
+                               job_kwargs={"misfire_grace_time": None})
     
     
 async def statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -154,7 +156,8 @@ def restore_session(application: Application):
             due, next_date = choose_next_dab_time()
             SessionTable(session.chat_id, next_dab=next_date).save()
         
-        application.job_queue.run_once(sudden_dab, due, chat_id=session.chat_id, name=str(session.chat_id), data=due)
+        application.job_queue.run_once(sudden_dab, due, chat_id=session.chat_id, name=str(session.chat_id), data=due,
+                                       job_kwargs={"misfire_grace_time": None})
 
 
 async def post_shutdown(app):
