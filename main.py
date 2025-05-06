@@ -233,7 +233,7 @@ if __name__ == '__main__':
     application.add_handler(stop_handler)
     application.add_handler(stats_handler)
     application.add_handler(dab_react_handler)
-    application.add_handler(test_handler)
+    # application.add_handler(test_handler)
     application.add_handler(unknown_handler)
     
     application.add_error_handler(error_handler)
